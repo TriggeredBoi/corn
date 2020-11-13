@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 configpath = "config.txt"
 if not os.path.isfile(configpath): #why would someone delete it? no idea! but they could.
     with open(configpath, "w") as f:
-        f.write("DISCORD_TOKEN=\nGUILD_ID=")
+        f.write("DISCORD_TOKEN=")
 
 load_dotenv(configpath)
 
@@ -27,6 +27,25 @@ bot = commands.Bot(command_prefix="!")
 @bot.event
 async def on_ready():
     print("Bot is up.")
+
+cornleaderboard = {}
+
+def addcorn(who, corns):
+    global cornleaderboard
+    if not cornleaderboard.get(who):
+        cornleaderboard[who] = corns
+        return corns
+
+    cornleaderboard[who] += corns
+    return cornleaderboard[who]
+
+@bot.event
+async def on_message(msg):
+    corns = re.findall("corn", msg.content.lower())
+    if not corns:
+        return
+    total = addcorn(msg.author.id, len(corns))
+    print(f"{msg.author} corned {len(corns)} times, now at a total of {total}")
 
 @bot.command()
 async def aaa(ctx):
