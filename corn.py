@@ -2,7 +2,7 @@ import os
 import re
 import json
 import random
-
+import datetime as dt
 
 #below are the ones that aren't python builtins
 import discord
@@ -10,6 +10,12 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 
+def createifnotexists(path, mode, textifnotthere=""):
+    if not os.path.isfile(path):
+        with open(path, "w") as f:
+            f.write(textifnotthere)
+            
+    return open(path, mode)
 
 configpath = "config.txt"
 if not os.path.isfile(configpath): #why would someone delete it? no idea! but they could.
@@ -23,11 +29,6 @@ if not token:
     print(f"The \"token\" field is empty - Please open \"{configpath}\" and put the discord bot token and Server ID in their respective fields.")
     exit()
 
-bot = commands.Bot(command_prefix="!")
-
-@bot.event
-async def on_ready():
-    print("Bot is up.")
 
 class CornController():
     def __init__(self):
@@ -46,11 +47,7 @@ class CornController():
         return total
     
     def loadcorn(self):
-        if not os.path.isfile(self.leaderboardfile):
-            with open(self.leaderboardfile, "w") as f:
-                f.write("{}")
-
-        with open(self.leaderboardfile, "r") as file: 
+        with createifnotexists(self.leaderboardfile, "r", "{}") as file: 
             self.cornleaderboard = json.loads(file.read())
 
     def savecorn(self):
@@ -59,6 +56,48 @@ class CornController():
             file.write(txt)
 
 Corn = CornController()
+bot = commands.Bot(command_prefix="!")
+
+@bot.event
+async def on_ready():
+    print("Bot is up.")
+
+    time = loadlasttime()
+    if not time:
+        return
+    
+    counter = 0
+    corncounter = 0
+    for channel in bot.get_all_channels():
+        #I'm getting weird errors with this and I'll attribute them to discordpy, not me.
+        #if not bot.user.permissions_in(channel).read_message_history:
+        #    print(f"Couldn't read message history from {channel}")
+        #    continue
+        async for message in channel.history(after=time):
+            if corns := search4corn(message):
+                counter += 1
+                corncounter += corns
+
+    if corncounter:
+        print(f"Looks like {counter} messages were missed since last the bot was active, and {corncounter} corns. These have been added to the leaderboard.")
+
+
+def loadlasttime():
+    with createifnotexists("lastmessagetime", "r") as file:
+        try: return dt.datetime.fromisoformat(file.read())
+        except: return
+
+def savelasttime(msg):
+    with open("lastmessagetime", "w") as file:
+        file.write(msg.created_at.isoformat())
+
+def search4corn(msg):
+    corns = re.findall("corn|🌽|🍿", msg.content.lower())
+    if not corns:
+        return
+
+    total = Corn.addcorn(msg, corns)
+    return len(corns), total
 
 
 @bot.event
@@ -66,12 +105,13 @@ async def on_message(msg):
     if msg.author == bot: return
     await bot.process_commands(msg)
 
-    corns = re.findall("corn|🌽|🍿", msg.content.lower())
-    if not corns:
+    savelasttime(msg)
+    
+    tupl = search4corn(msg)
+    if not tupl:
         return
-
-    total = Corn.addcorn(msg, corns)
-    print(f"{msg.author} corned {len(corns)} times, now at a total of {total}.")
+    corns, total = tupl
+    print(f"{msg.author} corned {corns} times, now at a total of {total}.")
 
     try: await msg.add_reaction("🌽")
     except discord.errors.Forbidden: pass
@@ -80,10 +120,10 @@ async def on_message(msg):
         try: await msg.channel.send("corn")
         except discord.errors.Forbidden: pass
 
-    print(msg.channel)
+    #print(msg.channel)
 
 
-@bot.command(aliases=["corn", "corntop", "lb"])
+@bot.command(aliases=["corn", "corntop", "lb", "🌽"])
 async def leaderboards(ctx, howmany=10):
     txt = ""
 
@@ -101,6 +141,8 @@ async def leaderboards(ctx, howmany=10):
 async def reload(ctx):
     Corn.loadcorn()
     await ctx.message.add_reaction("✅")
+
+
 
 if __name__ == "__main__":
     bot.run(token)
