@@ -6,7 +6,7 @@ import random
 
 #below are the ones that aren't python builtins
 import discord
-from discord.errors import Forbidden
+from discord.ext import commands
 from dotenv import load_dotenv
 
 
@@ -23,7 +23,7 @@ if not token:
     print(f"The \"token\" field is empty - Please open \"{configpath}\" and put the discord bot token and Server ID in their respective fields.")
     exit()
 
-bot = discord.ext.commands.Bot(command_prefix="!")
+bot = commands.Bot(command_prefix="!")
 
 @bot.event
 async def on_ready():
