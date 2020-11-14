@@ -55,8 +55,10 @@ class CornController():
             txt = json.dumps(self.cornleaderboard, indent=4)
             file.write(txt)
 
+
 Corn = CornController()
 bot = commands.Bot(command_prefix="!")
+
 
 @bot.event
 async def on_ready():
@@ -68,26 +70,41 @@ async def on_ready():
     
     counter = 0
     corncounter = 0
-    for channel in bot.get_all_channels():
-        #I'm getting weird errors with this and I'll attribute them to discordpy, not me.
-        #if not bot.user.permissions_in(channel).read_message_history:
-        #    print(f"Couldn't read message history from {channel}")
-        #    continue
-        async for message in channel.history(after=time):
-            if corns := search4corn(message):
-                counter += 1
-                corncounter += corns
+    for guild in bot.guilds:
+        for channel in guild.text_channels:
+            botmember = discord.utils.find(lambda member: member.id == bot.user.id, guild.members)
 
+            if not (botmember and botmember.permissions_in(channel).read_message_history):
+                print(f"Couldn't read message history from {channel}")
+                continue
+
+            lastmsg = None
+            messages = await channel.history(after=time, limit=1000).flatten()
+            for message in messages:
+                if corns := search4corn(message):
+                    counter += 1
+                    corncounter += corns[0]
+                    lastmsg = message
+            print(f"Found {len(messages)} messages in {channel}")
+
+    savelasttime(lastmsg)
+
+    Corn.savecorn()
     if corncounter:
         print(f"Looks like {counter} messages were missed since last the bot was active, and {corncounter} corns. These have been added to the leaderboard.")
+    else: print("No corns were lost while the bot was away!")
 
 
 def loadlasttime():
     with createifnotexists("lastmessagetime", "r") as file:
-        try: return dt.datetime.fromisoformat(file.read())
-        except: return
+        date = None
+        try:
+            date = dt.datetime.fromisoformat(file.read())
+        finally:
+            return date
 
 def savelasttime(msg):
+    if not msg: return
     with open("lastmessagetime", "w") as file:
         file.write(msg.created_at.isoformat())
 
