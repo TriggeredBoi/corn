@@ -60,36 +60,47 @@ class CornController():
 
 Corn = CornController()
 
+
 @bot.event
 async def on_message(msg):
     if msg.author == bot: return
+    await bot.process_commands(msg)
+
     corns = re.findall("corn|🌽|🍿", msg.content.lower())
     if not corns:
         return
+
     total = Corn.addcorn(msg, corns)
     print(f"{msg.author} corned {len(corns)} times, now at a total of {total}.")
+
     try: await msg.add_reaction("🌽")
     except discord.errors.Forbidden: pass
+
     if random.random() == 100:
         try: await msg.channel.send("corn")
         except discord.errors.Forbidden: pass
-    print(msg.channel)
-    await bot.process_commands(msg)
 
-@bot.command()
-async def corn(ctx):
+    print(msg.channel)
+
+
+@bot.command(aliases=["corn", "corntop", "lb"])
+async def leaderboards(ctx, howmany=10):
     txt = ""
 
     sortedboard = sorted(Corn.cornleaderboard.items(), key=lambda item: item[1], reverse=True) #(list of tuples)
     items = iter(sortedboard) #ghetto generator? or is a generator an advanced iterator? either way, this works.
 
-    for i in range( min(len(sortedboard), 10) ):
+    for i in range(howmany):
         id, amt = next(items)
         txt += f"#{i+1} | <@{id}> - {amt}\n"
         
     embed=discord.Embed(title="🌽 Leaderboards", description=txt)
     await ctx.send(embed=embed)
 
+@bot.command()
+async def reload(ctx):
+    Corn.loadcorn()
+    await ctx.message.add_reaction("✅")
 
 if __name__ == "__main__":
     bot.run(token)
