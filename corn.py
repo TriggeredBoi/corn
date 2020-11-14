@@ -1,7 +1,6 @@
 import os
-from random import choice
-from time import sleep
 import re
+import json
 
 
 #below are the ones that aren't python builtins
@@ -28,28 +27,48 @@ bot = commands.Bot(command_prefix="!")
 async def on_ready():
     print("Bot is up.")
 
-cornleaderboard = {}
+class CornController():
+    def __init__(self):
+        self.cornleaderboard = {}
+        self.leaderboardfile = "leaderboard.json"
+        self.loadcorn()
 
-def addcorn(who, corns):
-    global cornleaderboard
-    if not cornleaderboard.get(who):
-        cornleaderboard[who] = corns
-        return corns
+    def addcorn(self, msg, corns):
+        who = msg.author.id
 
-    cornleaderboard[who] += corns
-    return cornleaderboard[who]
+        total = self.cornleaderboard.setdefault(who, 0)
+        total += len(corns)
+
+        self.cornleaderboard[who] = total
+        return total
+    
+    def loadcorn(self):
+        if not os.path.isfile(self.leaderboardfile):
+            with open(self.leaderboardfile, "w") as f:
+                f.write("{}")
+
+        with open(self.leaderboardfile, "r") as file: 
+            self.cornleaderboard = json.loads(file.read())
+
+    def savecorn(self):
+        with open(self.leaderboardfile, "w") as file:
+            txt = json.dumps(self.cornleaderboard, indent=4)
+            file.write(txt)
+
+Corn = CornController()
 
 @bot.event
 async def on_message(msg):
-    corns = re.findall("corn", msg.content.lower())
+    print(msg.content.lower())
+    corns = re.findall("corn|🌽", msg.content.lower())
     if not corns:
         return
-    total = addcorn(msg.author.id, len(corns))
-    print(f"{msg.author} corned {len(corns)} times, now at a total of {total}")
+    total = Corn.addcorn(msg, corns)
+    print(f"{msg.author} corned {len(corns)} times, now at a total of {total}.")
 
 @bot.command()
-async def aaa(ctx):
-    pass
+async def save(ctx):
+    Corn.savecorn()
 
 
 if __name__ == "__main__":
