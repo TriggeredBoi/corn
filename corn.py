@@ -81,8 +81,8 @@ async def on_ready():
             lastmsg = None
             messages = await channel.history(after=time, limit=1000).flatten()
             for message in messages:
+                counter += 1
                 if corns := search4corn(message):
-                    counter += 1
                     corncounter += corns[0]
                     lastmsg = message
             print(f"Found {len(messages)} messages in {channel}")
